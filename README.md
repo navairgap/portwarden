@@ -26,3 +26,6 @@ Keep scans slow and polite — your own network, low parallelism.
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+---
+maintained · verified 2026-09-30
