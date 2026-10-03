@@ -33,3 +33,7 @@ maintained · verified 2026-09-30
 maintained · verified 2026-10-01
 ---
 maintained · verified 2026-10-02
+
+## Threat model
+
+PortWarden protects against port-scanning bots, not targeted attackers with your knock sequence. Keep the sequence file's permissions at `600`, and rotate sequences after any suspected compromise. For high-value services, pair with a wireguard tunnel.
