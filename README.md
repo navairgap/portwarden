@@ -37,3 +37,19 @@ maintained · verified 2026-10-02
 ## Threat model
 
 PortWarden protects against port-scanning bots, not targeted attackers with your knock sequence. Keep the sequence file's permissions at `600`, and rotate sequences after any suspected compromise. For high-value services, pair with a wireguard tunnel.
+
+## Configuration
+
+The knock sequence lives in `~/.config/portwarden/knock.toml`:
+
+```toml
+[[knock]]
+port = 7000
+secret = "base64-encoded-32-bytes"
+
+[[knock]]
+port = 8000
+secret = "another-secret"
+```
+
+Each entry is one door. Secrets are per-port; rotate freely.
