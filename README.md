@@ -53,3 +53,8 @@ secret = "another-secret"
 ```
 
 Each entry is one door. Secrets are per-port; rotate freely.
+
+
+## Auditing
+
+Every successful knock appends to syslog with the client IP and port sequence hash. Ship it to your log aggregator; alerts on unexpected opens are cheap to write from there.
