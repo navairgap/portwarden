@@ -58,3 +58,8 @@ Each entry is one door. Secrets are per-port; rotate freely.
 ## Auditing
 
 Every successful knock appends to syslog with the client IP and port sequence hash. Ship it to your log aggregator; alerts on unexpected opens are cheap to write from there.
+
+
+## Monitoring
+
+watch knock attempts in real time: `journalctl -u portwarden -f`. a rising failure rate means someone is probing — rotate sequences and consider a longer knock window.
