@@ -63,3 +63,7 @@ Every successful knock appends to syslog with the client IP and port sequence ha
 ## Monitoring
 
 watch knock attempts in real time: `journalctl -u portwarden -f`. a rising failure rate means someone is probing — rotate sequences and consider a longer knock window.
+
+## Backup & restore
+
+your entire state is one config file. back it up wherever you back up ssh keys — it's equally sensitive. restore is `cp knock.toml back` and a daemon restart.
