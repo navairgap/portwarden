@@ -67,3 +67,7 @@ watch knock attempts in real time: `journalctl -u portwarden -f`. a rising failu
 ## Backup & restore
 
 your entire state is one config file. back it up wherever you back up ssh keys — it's equally sensitive. restore is `cp knock.toml back` and a daemon restart.
+
+## Getting help
+
+open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
