@@ -71,3 +71,7 @@ your entire state is one config file. back it up wherever you back up ssh keys â
 ## Getting help
 
 open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
+
+## Getting help
+
+open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
