@@ -81,3 +81,7 @@ open an issue with: OS/distro, how you installed (source or package), your knock
 - knockd — classic, but knocks are replayable plaintext
 - fwknop — spa with real crypto, heavier to run
 - portwarden — encrypted sequences, single static binary, no config language
+
+## Failure modes
+
+wrong sequence: silently dropped, logged. partial: times out after 10s. locked out: every attempt is in the journal — recover from console, not by guessing.
