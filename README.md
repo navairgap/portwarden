@@ -75,3 +75,9 @@ open an issue with: OS/distro, how you installed (source or package), your knock
 ## Getting help
 
 open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
+
+## vs alternatives
+
+- knockd — classic, but knocks are replayable plaintext
+- fwknop — spa with real crypto, heavier to run
+- portwarden — encrypted sequences, single static binary, no config language
