@@ -89,3 +89,7 @@ wrong sequence: silently dropped, logged. partial: times out after 10s. locked o
 ## Permissions
 
 running as root works, but the cleaner grant is `setcap cap_net_admin=+ep $(which portwarden)` — the binary then manages interfaces as your user. the config stays 600 either way.
+
+## State files
+
+config: `~/.config/portwarden/knock.toml` (0600). journal: syslog. there is no other state — deleting the config fully uninstalls your doors.
