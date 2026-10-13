@@ -85,3 +85,7 @@ open an issue with: OS/distro, how you installed (source or package), your knock
 ## Failure modes
 
 wrong sequence: silently dropped, logged. partial: times out after 10s. locked out: every attempt is in the journal — recover from console, not by guessing.
+
+## Permissions
+
+running as root works, but the cleaner grant is `setcap cap_net_admin=+ep $(which portwarden)` — the binary then manages interfaces as your user. the config stays 600 either way.
