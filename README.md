@@ -93,3 +93,7 @@ running as root works, but the cleaner grant is `setcap cap_net_admin=+ep $(whic
 ## State files
 
 config: `~/.config/portwarden/knock.toml` (0600). journal: syslog. there is no other state — deleting the config fully uninstalls your doors.
+
+## FAQ
+
+**why not run fwknop everywhere?** fwknop's SPA is excellent and you should use it where it fits; portwarden exists for the cases SPA handles awkwardly — multiple services behind one door, sequences a human can type from a console, audit trails a syslog pipeline can eat.
