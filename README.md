@@ -97,3 +97,7 @@ config: `~/.config/portwarden/knock.toml` (0600). journal: syslog. there is no o
 ## FAQ
 
 **why not run fwknop everywhere?** fwknop's SPA is excellent and you should use it where it fits; portwarden exists for the cases SPA handles awkwardly — multiple services behind one door, sequences a human can type from a console, audit trails a syslog pipeline can eat.
+
+## Internals
+
+each knock is an HMAC over (secret, port, counter) — replaying a sniffed knock fails because the counter has moved. the sequence file is the only key material and it travels with your ssh keys' backup.
