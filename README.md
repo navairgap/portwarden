@@ -101,3 +101,7 @@ config: `~/.config/portwarden/knock.toml` (0600). journal: syslog. there is no o
 ## Internals
 
 each knock is an HMAC over (secret, port, counter) — replaying a sniffed knock fails because the counter has moved. the sequence file is the only key material and it travels with your ssh keys' backup.
+
+## Telemetry
+
+zero network activity at runtime beyond the knock packets themselves. there is no update check, no crash reporting, no phone home — a port knocker that phoned home would be a contradiction.
