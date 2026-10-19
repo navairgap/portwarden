@@ -1,107 +1,45 @@
-# portwarden
+# PortWarden
 
-Get alerted the moment a service appears or disappears on your devices
+A planned, local-first monitor for changes in services exposed by devices on a network you administer.
 
-> 🚧 **Status: planning** — architecture and README first, code next.
+> **Status: design stage.** This repository currently contains project documentation only; the monitor is not implemented yet.
 
-## Why
+## Problem
 
-Attack surface changes silently: a dev server left running, UPnP opening a port, a camera's telnet waking up. Portwarden snapshots your devices' open ports and diffs them — new or vanished services ping you instantly.
+Services appear and disappear over time: a development server is left running, a device enables remote access, or a router configuration changes. PortWarden is intended to record an authorized baseline and make later differences easy to review.
 
-## Planned features
+## Intended workflow
 
-- Baseline port scan of your own subnet, saved locally
-- Scheduled re-scans with diffing (new/closed/changed services)
-- Desktop or webhook alerts on changes
-- Plain-language report of what each service is and why it matters
+1. Configure an explicit list of devices or an authorized subnet.
+2. Run a low-rate inventory and save the baseline locally.
+3. Compare later inventories with the baseline.
+4. Report new, removed, and changed services with timestamps.
+5. Optionally notify through a user-configured local or webhook channel.
 
-## Stack
+## Design constraints
 
-`python` `nmap` `cron`
+- Only scan targets explicitly configured by the operator.
+- Use conservative timeouts and concurrency by default.
+- Never change firewall rules or disable services automatically.
+- Keep inventory data local unless the operator enables a notification integration.
+- Make errors and partial scans visible; do not treat an incomplete scan as a clean result.
 
-## Notes
+## Planned milestones
 
-Keep scans slow and polite — your own network, low parallelism.
+- [ ] Define a versioned baseline format.
+- [ ] Implement a scanner adapter and input validation.
+- [ ] Add deterministic diffing and unit tests using fixture data.
+- [ ] Add CLI output and JSON export.
+- [ ] Document permissions, rate controls, and safe deployment.
+
+## Scope
+
+PortWarden is a change monitor, not a port-knocking daemon or an access-control system. It should complement—not replace—host firewalls, asset management, and vulnerability management.
+
+## Development
+
+The first implementation should keep network access behind a small interface so tests can run offline. Contributions should include reproducible examples and tests for edge cases.
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
-
----
-maintained · verified 2026-09-30
----
-maintained · verified 2026-10-01
----
-maintained · verified 2026-10-02
-
-## Threat model
-
-PortWarden protects against port-scanning bots, not targeted attackers with your knock sequence. Keep the sequence file's permissions at `600`, and rotate sequences after any suspected compromise. For high-value services, pair with a wireguard tunnel.
-
-## Configuration
-
-The knock sequence lives in `~/.config/portwarden/knock.toml`:
-
-```toml
-[[knock]]
-port = 7000
-secret = "base64-encoded-32-bytes"
-
-[[knock]]
-port = 8000
-secret = "another-secret"
-```
-
-Each entry is one door. Secrets are per-port; rotate freely.
-
-
-## Auditing
-
-Every successful knock appends to syslog with the client IP and port sequence hash. Ship it to your log aggregator; alerts on unexpected opens are cheap to write from there.
-
-
-## Monitoring
-
-watch knock attempts in real time: `journalctl -u portwarden -f`. a rising failure rate means someone is probing — rotate sequences and consider a longer knock window.
-
-## Backup & restore
-
-your entire state is one config file. back it up wherever you back up ssh keys — it's equally sensitive. restore is `cp knock.toml back` and a daemon restart.
-
-## Getting help
-
-open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
-
-## Getting help
-
-open an issue with: OS/distro, how you installed (source or package), your knock.toml with secrets redacted, and `portwarden --version`. that triages 90% of reports without a follow-up question.
-
-## vs alternatives
-
-- knockd — classic, but knocks are replayable plaintext
-- fwknop — spa with real crypto, heavier to run
-- portwarden — encrypted sequences, single static binary, no config language
-
-## Failure modes
-
-wrong sequence: silently dropped, logged. partial: times out after 10s. locked out: every attempt is in the journal — recover from console, not by guessing.
-
-## Permissions
-
-running as root works, but the cleaner grant is `setcap cap_net_admin=+ep $(which portwarden)` — the binary then manages interfaces as your user. the config stays 600 either way.
-
-## State files
-
-config: `~/.config/portwarden/knock.toml` (0600). journal: syslog. there is no other state — deleting the config fully uninstalls your doors.
-
-## FAQ
-
-**why not run fwknop everywhere?** fwknop's SPA is excellent and you should use it where it fits; portwarden exists for the cases SPA handles awkwardly — multiple services behind one door, sequences a human can type from a console, audit trails a syslog pipeline can eat.
-
-## Internals
-
-each knock is an HMAC over (secret, port, counter) — replaying a sniffed knock fails because the counter has moved. the sequence file is the only key material and it travels with your ssh keys' backup.
-
-## Telemetry
-
-zero network activity at runtime beyond the knock packets themselves. there is no update check, no crash reporting, no phone home — a port knocker that phoned home would be a contradiction.
+MIT. See [LICENSE](LICENSE).
