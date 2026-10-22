@@ -43,3 +43,8 @@ The first implementation should keep network access behind a small interface so 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+
+## Inventory correctness
+
+Only compare baselines from completed scans with compatible scope. Represent partial or failed scans explicitly so unreachable targets are not mistaken for removed services. Require confirmation before replacing an accepted baseline.
