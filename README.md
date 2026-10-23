@@ -48,3 +48,8 @@ MIT. See [LICENSE](LICENSE).
 ## Inventory correctness
 
 Only compare baselines from completed scans with compatible scope. Represent partial or failed scans explicitly so unreachable targets are not mistaken for removed services. Require confirmation before replacing an accepted baseline.
+
+
+## Maintenance and verification notes
+
+Clarify inventory semantics: failed or partial scans must not be interpreted as removed services; compare only compatible completed scans and require confirmation before baseline replacement.
