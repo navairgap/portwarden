@@ -32,6 +32,13 @@ This document defines a local JSON format for comparing authorized service inven
 - Unknown fields may be ignored by readers but should be preserved by tools that rewrite a baseline where practical.
 - Baselines are local data. Export or upload must be an explicit operator action.
 
+## Canonicalization and ambiguity
+
+- Reject duplicate `(protocol, port)` keys after protocol normalization; never use last-write-wins, because it can hide a changed service.
+- Validate each service as an object before comparing it. Unknown `state` values and non-integer ports are invalid rather than silently coerced.
+- A baseline with `complete: true` must represent every requested probe; if the implementation records failed probes, a non-empty failure list requires `complete: false`.
+- Do not normalize hostnames into IP addresses implicitly. Keep the configured target identity in the baseline and report any resolved address separately.
+
 ## Diff semantics
 
 Compare only complete inventories by default. Report added, removed, and changed service keys separately. If either inventory is incomplete, label the result partial and list the failed probes. A missing service in a partial scan is not evidence that the service disappeared.
