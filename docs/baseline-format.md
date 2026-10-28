@@ -43,6 +43,10 @@ This document defines a local JSON format for comparing authorized service inven
 
 Compare only complete inventories by default. Report added, removed, and changed service keys separately. If either inventory is incomplete, label the result partial and list the failed probes. A missing service in a partial scan is not evidence that the service disappeared.
 
+## Deterministic comparison output
+
+Sort service observations by protocol and numeric port before serialization or display. Numeric ordering matters: port 80 must sort before port 443, regardless of string formatting. When duplicate keys are present, reject the baseline instead of choosing the first or last record. Keep the original target identifier visible in every comparison report, and include the baseline timestamps so operators can identify stale snapshots.
+
 ## Fixture tests to add with the implementation
 
 Cover valid v1 input, unknown schema versions, invalid ports, duplicate service keys, invalid timestamps, and incomplete scans. Keep tests offline and use checked-in fixtures.
