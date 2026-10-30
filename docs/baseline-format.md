@@ -50,3 +50,7 @@ Sort service observations by protocol and numeric port before serialization or d
 ## Fixture tests to add with the implementation
 
 Cover valid v1 input, unknown schema versions, invalid ports, duplicate service keys, invalid timestamps, and incomplete scans. Keep tests offline and use checked-in fixtures.
+
+## Timestamp freshness
+
+Treat the creation timestamp as observation metadata, not proof that a scan is current. A comparison report should show the age of both snapshots and allow callers to apply an explicit maximum age. Do not silently discard an older but complete baseline; label it stale according to the caller's policy and preserve it for manual review. Parse timestamps with an explicit UTC offset and reject invalid or timezone-naive values.
