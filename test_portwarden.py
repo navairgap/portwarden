@@ -3,6 +3,25 @@ import unittest
 from portwarden import Inventory, InventoryError, compare
 
 
+class InventoryLoadTests(unittest.TestCase):
+    def test_non_utf8_file_is_an_input_error_not_a_crash(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as handle:
+            handle.write(b"\xff\xfe{\x00}")
+            path = Path(handle.name)
+        try:
+            with self.assertRaisesRegex(InventoryError, "UTF-8"):
+                Inventory.load(path)
+        finally:
+            path.unlink(missing_ok=True)
+
+    def test_missing_file_raises_inventory_error(self):
+        with self.assertRaises(OSError):
+            Inventory.load("/nonexistent/portwarden-fixture.json")
+
+
 def inventory(scope=None, services=None, status="complete"):
     return {
         "schema_version": 1,

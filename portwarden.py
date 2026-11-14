@@ -96,6 +96,8 @@ class Inventory:
                 return cls.parse(json.load(stream))
         except json.JSONDecodeError as exc:
             raise InventoryError(f"invalid JSON: {exc}") from exc
+        except UnicodeDecodeError as exc:
+            raise InventoryError(f"inventory is not valid UTF-8: {exc}") from exc
 
 
 def compare(baseline: Inventory, current: Inventory) -> dict[str, list[dict[str, object]]]:
