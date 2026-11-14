@@ -1,27 +1,49 @@
-# Baseline import and export (proposed)
+# Baseline import and export (implemented)
 
-Baseline files can reveal device names, addresses, and exposed services. Treat them as security-sensitive local inventory, even when they contain no credentials.
+Baseline files can reveal device names, addresses, and exposed services.
+Treat them as security-sensitive local inventory, even when they contain no
+credentials.
 
-## Import validation
+## Import validation (implemented)
 
-1. Enforce a maximum file size before parsing.
+1. Enforce a maximum file size before parsing (64 MiB by default).
 2. Decode UTF-8 strictly and parse one JSON object.
-3. Validate the schema version, timestamp, target identity, completion state, and every service entry before accepting the file.
-4. Reject duplicate service keys, invalid ports, unsupported protocols, malformed timestamps, and contradictory completion metadata.
-5. Keep the imported data separate from the currently accepted baseline until validation and operator review finish.
+3. Validate the schema version, status, timestamp, scope, and every service
+   entry before accepting the file.
+4. Reject duplicate service keys, invalid ports, unsupported protocols,
+   malformed timestamps, invalid CIDR prefixes, and declared fingerprints
+   that do not match file contents.
+5. Keep imported snapshots separate from the accepted baseline until
+   `accept` promotes them.
 
-Unknown optional fields may be retained for forward compatibility, but unknown major schema versions must not be silently interpreted as the current format.
+Unknown optional fields are retained for forward compatibility (the
+original document is re-serialized verbatim), but unknown major schema
+versions are rejected rather than silently interpreted.
 
-## Export behavior
+## Export behavior (implemented)
 
-Export only on an explicit operator action. Write to a temporary file in the destination directory, flush it, and atomically replace the requested output after the complete serialization succeeds. Do not overwrite an existing baseline without confirmation. Use restrictive file permissions where the platform supports them.
+Export only on an explicit operator action (`import-nmap --output`,
+`accept --to`). Writes go to a temporary file in the destination directory,
+are flushed and fsynced, receive mode 0600, and atomically replace the
+requested output only after the complete serialization succeeds. An
+existing file is never overwritten without `--force`. The temporary file is
+removed on any failure.
 
-Service banners and labels may contain remote-controlled text. Redact credentials and control characters before including them in human-readable exports; keep any raw evidence opt-in and clearly marked as untrusted.
+Service names may contain remote-controlled text. They are bounded and
+stripped of control characters at parse time, and JSON-quoted in
+human-readable reports.
 
 ## Integrity and provenance
 
-Record the tool version, schema version, creation time, configured target, scope fingerprint, and completion state. A checksum can detect accidental corruption, but it is not proof of origin unless the file is authenticated by a separately managed signing key. Do not describe an unsigned local file as tamper-proof.
+Inventories record the tool-visible schema version, creation time,
+configured scope, scope fingerprint, and completion state; `provenance`
+keeps scanner identity and the command line outside the fingerprint. The
+fingerprint detects scope incompatibility and accidental content drift, but
+it is not proof of origin: an unsigned local file is not tamper-proof.
 
 ## Tests
 
-Use temporary files to cover oversized input, malformed UTF-8, invalid schema versions, duplicate services, failed writes, preservation of an existing baseline, and cleanup of temporary files. Never test destructive replacement against a user's real inventory.
+Offline fixtures cover oversized input, malformed UTF-8, invalid schema
+versions, duplicate services, refused overwrites, partial scans, temporary
+file cleanup, and permission bits. Nothing destructive runs against a
+real inventory.
