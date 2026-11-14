@@ -64,6 +64,7 @@ packages = ["src/portwarden"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+python_classes = ["Test*", "*Tests"]
 
 [tool.ruff]
 line-length = 100

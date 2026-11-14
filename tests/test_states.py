@@ -53,7 +53,7 @@ class CompletionTests:
             Inventory.parse(inventory([], status="partial"))
 
     def test_partial_inventories_can_be_inspected_without_a_baseline(self):
-        parsed = Inventory.parse(inventory([service(22)], status="partial"))
+        parsed = Inventory.parse(inventory([service(22)], status="partial"), require_complete=False)
         assert parsed.status == "partial"
         assert len(parsed.services) == 1
 
