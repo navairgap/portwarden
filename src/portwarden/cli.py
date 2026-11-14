@@ -12,6 +12,7 @@ Exit status contract (see docs/cli-output-contract.md):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import datetime, timezone
 
@@ -20,8 +21,10 @@ from .diff import compare
 from .errors import IncompleteInventoryError, InventoryError, ScopeMismatchError
 from .fingerprint import compute_fingerprint
 from .models import SCHEMA_VERSION, Inventory
+from .nmap import NmapScan
 from .report import ComparisonReport
 from .storage import write_baseline
+from .timestamps import parse_rfc3339
 
 EXIT_OK = 0
 EXIT_CHANGES = 1
@@ -111,6 +114,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="replace an existing baseline at the destination",
     )
     accept_parser.set_defaults(func=_run_accept)
+
+    import_parser = subcommands.add_parser(
+        "import-nmap",
+        help="convert nmap XML output into an inventory",
+        description=(
+            "Convert the XML output of an nmap run (nmap -oX) into an "
+            "inventory document. The declared scope is authoritative; "
+            "hosts outside it are refused."
+        ),
+    )
+    import_parser.add_argument("nmap_xml", help="nmap XML file (-oX output)")
+    import_parser.add_argument(
+        "--scope",
+        required=True,
+        help="comma-separated authorized targets (hosts or CIDR subnets)",
+    )
+    import_parser.add_argument(
+        "--output",
+        help="write the inventory to this path instead of stdout",
+    )
+    import_parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="emit status=partial for incomplete runs instead of refusing",
+    )
+    import_parser.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="record closed/filtered/unreachable observations explicitly",
+    )
+    import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="replace an existing file at --output",
+    )
+    import_parser.add_argument(
+        "--scanned-at",
+        default=None,
+        help="RFC 3339 UTC snapshot time overriding the XML finish time",
+    )
+    import_parser.set_defaults(func=_run_import_nmap)
 
     return parser
 
@@ -203,6 +247,48 @@ def _run_fingerprint(args: argparse.Namespace) -> int:
             schema_version=SCHEMA_VERSION,
         )
     )
+    return EXIT_OK
+
+
+def _run_import_nmap(args: argparse.Namespace) -> int:
+    try:
+        scan = NmapScan.load(args.nmap_xml)
+    except (OSError, InventoryError) as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    if not scan.is_complete and not args.allow_partial:
+        print(
+            "portwarden: nmap run is incomplete (down or timed-out hosts, or a "
+            "failed finish); use --allow-partial to emit status=partial",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL
+    scope = [target for target in args.scope.split(",") if target.strip()]
+    scanned_at: datetime | None = None
+    if args.scanned_at is not None:
+        try:
+            scanned_at = parse_rfc3339(args.scanned_at, field_name="--scanned-at")
+        except InventoryError as exc:
+            print(f"portwarden: {exc}", file=sys.stderr)
+            return EXIT_INPUT_ERROR
+    try:
+        document = scan.build_inventory(
+            scope=scope,
+            scanned_at=scanned_at,
+            include_closed=args.include_closed,
+        )
+    except InventoryError as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    if args.output:
+        try:
+            write_baseline(args.output, document, overwrite=args.force)
+        except (OSError, InventoryError) as exc:
+            print(f"portwarden: {exc}", file=sys.stderr)
+            return EXIT_INPUT_ERROR
+        print(f"Inventory written to {args.output} ({document['status']})")
+    else:
+        print(json.dumps(document, indent=2, sort_keys=True))
     return EXIT_OK
 
 

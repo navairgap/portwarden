@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sU -oX udp.xml -p 53,161 192.0.2.10" start="1794643200" startstr="Thu Nov 14 08:00:00 2026" version="7.95" xmloutputversion="1.05">
+<scaninfo type="udp" protocol="udp" numservices="2" services="53,161"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1794643200" endtime="1794643209">
+<status state="up" reason="reset" reason_ttl="52"/>
+<address addr="192.0.2.10" addrtype="ipv4"/>
+<hostnames/>
+<ports>
+<port protocol="udp" portid="53"><state state="open" reason="udp-response" reason_ttl="52"/><service name="domain" method="table" conf="3"/></port>
+<port protocol="udp" portid="161"><state state="open|filtered" reason="no-response" reason_ttl="52"/><service name="snmp" method="table" conf="3"/></port>
+</ports>
+<times srtt="1200" rttvar="500" to="100000"/>
+</host>
+<runstats>
+<finished time="1794643209" timestr="Thu Nov 14 08:00:09 2026" elapsed="9.40" exit="success" summary="Nmap done: 1 IP address (1 host up) scanned in 9.40 seconds"/>
+<hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>
