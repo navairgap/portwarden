@@ -37,9 +37,7 @@ class InventoryValidationTests(unittest.TestCase):
             Inventory.parse(inventory(status="partial"))
 
     def test_rejects_services_outside_declared_scope(self):
-        item = inventory(services=[{
-            "host": "192.0.2.99", "port": 443, "protocol": "tcp"
-        }])
+        item = inventory(services=[{"host": "192.0.2.99", "port": 443, "protocol": "tcp"}])
         with self.assertRaisesRegex(InventoryError, "outside"):
             Inventory.parse(item)
 
@@ -49,9 +47,7 @@ class InventoryValidationTests(unittest.TestCase):
             Inventory.parse(inventory(services=[service, service]))
 
     def test_rejects_boolean_as_port(self):
-        item = inventory(services=[{
-            "host": "192.0.2.10", "port": True, "protocol": "tcp"
-        }])
+        item = inventory(services=[{"host": "192.0.2.10", "port": True, "protocol": "tcp"}])
         with self.assertRaisesRegex(InventoryError, "port"):
             Inventory.parse(item)
 
@@ -77,33 +73,48 @@ class ScopeValidationTests(unittest.TestCase):
             Inventory.parse(inventory(scope=[bad]))
 
     def test_valid_hostname_and_ipv6_targets_are_accepted(self):
-        parsed = Inventory.parse(inventory(scope=[
-            "host.example.org", "2001:db8::1",
-        ]))
-        self.assertEqual(
-            parsed.scope, ("2001:db8::1", "host.example.org")
+        parsed = Inventory.parse(
+            inventory(
+                scope=[
+                    "host.example.org",
+                    "2001:db8::1",
+                ]
+            )
         )
+        self.assertEqual(parsed.scope, ("2001:db8::1", "host.example.org"))
 
 
 class InventoryDiffTests(unittest.TestCase):
     def test_reports_new_and_removed_services_deterministically(self):
-        old = Inventory.parse(inventory(services=[
-            {"host": "192.0.2.10", "port": 22, "protocol": "tcp"},
-            {"host": "192.0.2.10", "port": 80, "protocol": "tcp"},
-        ]))
-        new = Inventory.parse(inventory(services=[
-            {"host": "192.0.2.10", "port": 22, "protocol": "tcp"},
-            {"host": "192.0.2.10", "port": 80, "protocol": "tcp", "state": "closed"},
-            {"host": "192.0.2.10", "port": 443, "protocol": "tcp"},
-        ]))
+        old = Inventory.parse(
+            inventory(
+                services=[
+                    {"host": "192.0.2.10", "port": 22, "protocol": "tcp"},
+                    {"host": "192.0.2.10", "port": 80, "protocol": "tcp"},
+                ]
+            )
+        )
+        new = Inventory.parse(
+            inventory(
+                services=[
+                    {"host": "192.0.2.10", "port": 22, "protocol": "tcp"},
+                    {"host": "192.0.2.10", "port": 80, "protocol": "tcp", "state": "closed"},
+                    {"host": "192.0.2.10", "port": 443, "protocol": "tcp"},
+                ]
+            )
+        )
         result = compare(old, new)
         self.assertEqual([x["port"] for x in result["added"]], [443])
         self.assertEqual([x["port"] for x in result["removed"]], [80])
 
     def test_missing_observation_is_not_evidence_of_removal(self):
-        old = Inventory.parse(inventory(services=[
-            {"host": "192.0.2.10", "port": 80, "protocol": "tcp"},
-        ]))
+        old = Inventory.parse(
+            inventory(
+                services=[
+                    {"host": "192.0.2.10", "port": 80, "protocol": "tcp"},
+                ]
+            )
+        )
         new = Inventory.parse(inventory(services=[]))
         result = compare(old, new)
         self.assertEqual(result["removed"], [])

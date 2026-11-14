@@ -26,9 +26,7 @@ def service(host: str, port: int = 443) -> dict[str, Any]:
 
 class CidrScopeTests:
     def test_service_inside_authorized_subnet_is_accepted(self):
-        parsed = Inventory.parse(
-            inventory(["203.0.113.0/24"], [service("203.0.113.7")])
-        )
+        parsed = Inventory.parse(inventory(["203.0.113.0/24"], [service("203.0.113.7")]))
         assert parsed.services[0].host == "203.0.113.7"
 
     def test_service_outside_the_subnet_is_rejected(self):
@@ -36,9 +34,7 @@ class CidrScopeTests:
             Inventory.parse(inventory(["203.0.113.0/24"], [service("203.0.114.7")]))
 
     def test_ipv6_subnets_accept_member_addresses(self):
-        parsed = Inventory.parse(
-            inventory(["2001:db8:aa::/48"], [service("2001:db8:aa::5")])
-        )
+        parsed = Inventory.parse(inventory(["2001:db8:aa::/48"], [service("2001:db8:aa::5")]))
         assert len(parsed.services) == 1
 
     def test_hostnames_never_match_a_subnet_implicitly(self):

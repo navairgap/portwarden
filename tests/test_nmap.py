@@ -93,9 +93,7 @@ class BuildInventoryTests:
         scan = NmapScan.load(FIXTURES / "nmap_two_hosts.xml")
         default = scan.build_inventory(scope=["192.0.2.10", "192.0.2.11"])
         assert all(service["state"] == "open" for service in default["services"])
-        explicit = scan.build_inventory(
-            scope=["192.0.2.10", "192.0.2.11"], include_closed=True
-        )
+        explicit = scan.build_inventory(scope=["192.0.2.10", "192.0.2.11"], include_closed=True)
         states = {(s["port"], s["state"]) for s in explicit["services"]}
         assert (443, "closed") in states
 
@@ -112,9 +110,7 @@ class BuildInventoryTests:
     def test_scanned_at_override_is_respected(self):
         scan = NmapScan.load(FIXTURES / "nmap_two_hosts.xml")
         moment = parse_rfc3339("2026-11-14T00:00:00Z")
-        document = scan.build_inventory(
-            scope=["192.0.2.10", "192.0.2.11"], scanned_at=moment
-        )
+        document = scan.build_inventory(scope=["192.0.2.10", "192.0.2.11"], scanned_at=moment)
         assert document["scanned_at"] == "2026-11-14T00:00:00Z"
 
     def test_partial_scans_are_marked_partial_and_loadable(self):
@@ -133,50 +129,58 @@ class BuildInventoryTests:
 
 class ImportCommandTests:
     def test_import_prints_one_json_document(self, capsys):
-        code = main([
-            "import-nmap",
-            str(FIXTURES / "nmap_two_hosts.xml"),
-            "--scope",
-            SCOPE,
-        ])
+        code = main(
+            [
+                "import-nmap",
+                str(FIXTURES / "nmap_two_hosts.xml"),
+                "--scope",
+                SCOPE,
+            ]
+        )
         assert code == 0
         payload = json.loads(capsys.readouterr().out)
         assert payload["status"] == "complete"
 
     def test_incomplete_run_refused_without_flag(self, capsys):
         assert (
-            main([
-                "import-nmap",
-                str(FIXTURES / "nmap_partial.xml"),
-                "--scope",
-                "192.0.2.10,192.0.2.99",
-            ])
+            main(
+                [
+                    "import-nmap",
+                    str(FIXTURES / "nmap_partial.xml"),
+                    "--scope",
+                    "192.0.2.10,192.0.2.99",
+                ]
+            )
             == 4
         )
         assert capsys.readouterr().out == ""
 
     def test_incomplete_run_imported_as_partial_with_flag(self, capsys):
-        code = main([
-            "import-nmap",
-            str(FIXTURES / "nmap_partial.xml"),
-            "--scope",
-            "192.0.2.10,192.0.2.99",
-            "--allow-partial",
-        ])
+        code = main(
+            [
+                "import-nmap",
+                str(FIXTURES / "nmap_partial.xml"),
+                "--scope",
+                "192.0.2.10,192.0.2.99",
+                "--allow-partial",
+            ]
+        )
         assert code == 0
         payload = json.loads(capsys.readouterr().out)
         assert payload["status"] == "partial"
 
     def test_output_writes_a_restricted_permission_file(self, tmp_path):
         destination = tmp_path / "snapshot.json"
-        code = main([
-            "import-nmap",
-            str(FIXTURES / "nmap_two_hosts.xml"),
-            "--scope",
-            SCOPE,
-            "--output",
-            str(destination),
-        ])
+        code = main(
+            [
+                "import-nmap",
+                str(FIXTURES / "nmap_two_hosts.xml"),
+                "--scope",
+                SCOPE,
+                "--output",
+                str(destination),
+            ]
+        )
         assert code == 0
         import stat
 
@@ -187,26 +191,30 @@ class ImportCommandTests:
     def test_output_refuses_to_overwrite_without_force(self, tmp_path, capsys):
         destination = tmp_path / "snapshot.json"
         destination.write_text("keep me", encoding="utf-8")
-        code = main([
-            "import-nmap",
-            str(FIXTURES / "nmap_two_hosts.xml"),
-            "--scope",
-            SCOPE,
-            "--output",
-            str(destination),
-        ])
+        code = main(
+            [
+                "import-nmap",
+                str(FIXTURES / "nmap_two_hosts.xml"),
+                "--scope",
+                SCOPE,
+                "--output",
+                str(destination),
+            ]
+        )
         assert code == 2
         assert destination.read_text(encoding="utf-8") == "keep me"
 
     def test_invalid_scanned_at_is_an_input_error(self, capsys):
         assert (
-            main([
-                "import-nmap",
-                str(FIXTURES / "nmap_two_hosts.xml"),
-                "--scope",
-                SCOPE,
-                "--scanned-at",
-                "later today",
-            ])
+            main(
+                [
+                    "import-nmap",
+                    str(FIXTURES / "nmap_two_hosts.xml"),
+                    "--scope",
+                    SCOPE,
+                    "--scanned-at",
+                    "later today",
+                ]
+            )
             == 2
         )

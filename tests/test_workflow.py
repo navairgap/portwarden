@@ -94,12 +94,14 @@ def test_full_operator_workflow(tmp_path, capsys):  # type: ignore[no-untyped-de
     #    are never inferred from scan output.
     capsys.readouterr()
     assert (
-        main([
-            "import-nmap",
-            str(FIXTURES / "nmap_two_hosts.xml"),
-            "--scope",
-            "192.0.2.10",
-        ])
+        main(
+            [
+                "import-nmap",
+                str(FIXTURES / "nmap_two_hosts.xml"),
+                "--scope",
+                "192.0.2.10",
+            ]
+        )
         == 2
     )
     assert capsys.readouterr().out == ""

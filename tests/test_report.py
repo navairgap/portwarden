@@ -73,12 +73,8 @@ class EnvelopeTests:
         max_age = 3600.0
         assert report(max_age_seconds=max_age).to_dict()["stale"] is False
         old = parse_rfc3339("2026-11-14T08:00:00Z")
-        assert report(baseline_scanned_at=old, max_age_seconds=max_age).to_dict()[
-            "stale"
-        ] is True
-        assert report(max_age_seconds=max_age, baseline_scanned_at=None).to_dict()[
-            "stale"
-        ] is None
+        assert report(baseline_scanned_at=old, max_age_seconds=max_age).to_dict()["stale"] is True
+        assert report(max_age_seconds=max_age, baseline_scanned_at=None).to_dict()["stale"] is None
         assert report().to_dict()["stale"] is None
 
 
@@ -86,9 +82,7 @@ class TextReportTests:
     def test_sections_appear_with_counts(self):
         text = report(
             result=result(
-                added=[
-                    {"host": "192.0.2.10", "port": 443, "protocol": "tcp", "name": "https"}
-                ],
+                added=[{"host": "192.0.2.10", "port": 443, "protocol": "tcp", "name": "https"}],
                 unverified=[
                     {"host": "192.0.2.10", "port": 22, "protocol": "tcp", "reason": "filtered"}
                 ],
@@ -102,13 +96,15 @@ class TextReportTests:
     def test_changed_names_are_json_quoted(self):
         text = report(
             result=result(
-                changed=[{
-                    "host": "192.0.2.10",
-                    "port": 22,
-                    "protocol": "tcp",
-                    "baseline_name": 'weird "name"',
-                    "current_name": "ok",
-                }]
+                changed=[
+                    {
+                        "host": "192.0.2.10",
+                        "port": 22,
+                        "protocol": "tcp",
+                        "baseline_name": 'weird "name"',
+                        "current_name": "ok",
+                    }
+                ]
             )
         ).to_text()
         assert '"weird \\"name\\""' in text

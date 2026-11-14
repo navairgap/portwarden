@@ -34,9 +34,7 @@ STATES: frozenset[str] = frozenset(
 )
 
 #: Observation states that cannot confirm or deny a service's presence.
-UNKNOWN_STATES: frozenset[str] = frozenset(
-    {"filtered", "unreachable", "not_scanned", "error"}
-)
+UNKNOWN_STATES: frozenset[str] = frozenset({"filtered", "unreachable", "not_scanned", "error"})
 
 #: Scan completion markers allowed in inventory files. Failed and cancelled
 #: runs must not produce inventory files at all.
@@ -67,9 +65,7 @@ class ScanParameters:
             raise InventoryError("scan_parameters must be an object")
         unknown = set(value) - {"protocols", "ports", "options"}
         if unknown:
-            raise InventoryError(
-                f"unknown scan_parameters field(s): {', '.join(sorted(unknown))}"
-            )
+            raise InventoryError(f"unknown scan_parameters field(s): {', '.join(sorted(unknown))}")
         canonical = normalize_scan_parameters(value)
         assert canonical is not None  # normalize raises on empty input
         return cls(
@@ -120,8 +116,10 @@ class Service:
             raise InventoryError("service port must be an integer from 1 to 65535")
         if protocol not in PROTOCOLS:
             raise InventoryError("service protocol must be tcp or udp")
-        if not isinstance(name, str) or len(name) > MAX_NAME_LENGTH or any(
-            ord(c) < 32 for c in name
+        if (
+            not isinstance(name, str)
+            or len(name) > MAX_NAME_LENGTH
+            or any(ord(c) < 32 for c in name)
         ):
             raise InventoryError("service name must be a short printable string")
         if not isinstance(state, str) or state not in STATES:
@@ -181,13 +179,13 @@ class Inventory:
         if status not in STATUSES:
             raise InventoryError("inventory status must be complete or partial")
         if require_complete and status != "complete":
-            raise IncompleteInventoryError(
-                "only completed scans can be used as a baseline"
-            )
+            raise IncompleteInventoryError("only completed scans can be used as a baseline")
         scope = value.get("scope")
         services = value.get("services")
-        if not isinstance(scope, list) or not scope or not all(
-            isinstance(item, str) for item in scope
+        if (
+            not isinstance(scope, list)
+            or not scope
+            or not all(isinstance(item, str) for item in scope)
         ):
             raise InventoryError("scope must be a non-empty list of target identifiers")
         # Whitespace normalization is the only identity change applied to
@@ -215,24 +213,18 @@ class Inventory:
         declared_fingerprint = value.get("scope_fingerprint")
         if declared_fingerprint is not None:
             if not is_valid_fingerprint(declared_fingerprint):
-                raise InventoryError(
-                    "scope_fingerprint must be a sha256-prefixed hex digest"
-                )
+                raise InventoryError("scope_fingerprint must be a sha256-prefixed hex digest")
             computed = compute_fingerprint(
                 normalized,
                 scan_parameters.as_dict() if scan_parameters else None,
                 schema_version=SCHEMA_VERSION,
             )
             if declared_fingerprint != computed:
-                raise InventoryError(
-                    "declared scope_fingerprint does not match inventory contents"
-                )
+                raise InventoryError("declared scope_fingerprint does not match inventory contents")
         parsed = tuple(Service.parse(item) for item in services)
         keys = [service.key for service in parsed]
         if len(set(keys)) != len(keys):
-            raise InventoryError(
-                "services contains duplicate host/port/protocol entries"
-            )
+            raise InventoryError("services contains duplicate host/port/protocol entries")
         if any(not is_host_in_scope(service.host, normalized) for service in parsed):
             raise InventoryError("service host is outside the declared inventory scope")
         return cls(

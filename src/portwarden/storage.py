@@ -25,9 +25,7 @@ MAX_INVENTORY_BYTES = 64 * 1024 * 1024
 _BASELINE_MODE = 0o600
 
 
-def load_json_document(
-    path: str | Path, *, max_bytes: int = MAX_INVENTORY_BYTES
-) -> Any:
+def load_json_document(path: str | Path, *, max_bytes: int = MAX_INVENTORY_BYTES) -> Any:
     """Read one UTF-8 JSON document, enforcing a size ceiling first.
 
     Raises:
@@ -38,15 +36,11 @@ def load_json_document(
     target = Path(path)
     size = target.stat().st_size
     if size > max_bytes:
-        raise InventoryError(
-            f"inventory file is {size} bytes; the limit is {max_bytes}"
-        )
+        raise InventoryError(f"inventory file is {size} bytes; the limit is {max_bytes}")
     with target.open("rb") as stream:
         data = stream.read(max_bytes + 1)
     if len(data) > max_bytes:
-        raise InventoryError(
-            f"inventory file exceeds the {max_bytes}-byte read limit"
-        )
+        raise InventoryError(f"inventory file exceeds the {max_bytes}-byte read limit")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError as exc:
@@ -57,9 +51,7 @@ def load_json_document(
         raise InventoryError(f"invalid JSON: {exc}") from exc
 
 
-def atomic_write_bytes(
-    path: str | Path, data: bytes, *, mode: int = _BASELINE_MODE
-) -> None:
+def atomic_write_bytes(path: str | Path, data: bytes, *, mode: int = _BASELINE_MODE) -> None:
     """Write bytes so readers only ever see the old or the new file.
 
     The payload lands in a temporary file in the destination directory,
@@ -71,9 +63,7 @@ def atomic_write_bytes(
     directory = target.parent if str(target.parent) else Path()
     if not directory.is_dir():
         raise InventoryError(f"destination directory does not exist: {directory}")
-    descriptor, temporary = tempfile.mkstemp(
-        dir=directory, prefix=".portwarden-", suffix=".tmp"
-    )
+    descriptor, temporary = tempfile.mkstemp(dir=directory, prefix=".portwarden-", suffix=".tmp")
     try:
         with os.fdopen(descriptor, "wb") as stream:
             stream.write(data)
@@ -103,9 +93,7 @@ def serialize_document(document: dict[str, Any]) -> bytes:
     return (text + "\n").encode("utf-8")
 
 
-def write_baseline(
-    path: str | Path, document: dict[str, Any], *, overwrite: bool
-) -> None:
+def write_baseline(path: str | Path, document: dict[str, Any], *, overwrite: bool) -> None:
     """Atomically write a baseline after confirming replacement.
 
     Raises:

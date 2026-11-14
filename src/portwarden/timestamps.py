@@ -16,9 +16,7 @@ from .errors import InventoryError
 
 # RFC 3339 date-time with a mandatory offset (Z or ±HH:MM). Lowercase
 # 't'/'z' separators are permitted by the RFC and accepted here.
-_RFC3339_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$"
-)
+_RFC3339_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?([Zz]|[+-]\d{2}:\d{2})$")
 
 
 def parse_rfc3339(value: object, *, field_name: str = "timestamp") -> datetime:

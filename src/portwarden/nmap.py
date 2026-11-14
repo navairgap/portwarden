@@ -109,9 +109,7 @@ class NmapScan:
             for token in services.split(","):
                 token = token.strip()
                 if token:
-                    requested.update(
-                        _parse_ports_token(token, protocol=protocol)
-                    )
+                    requested.update(_parse_ports_token(token, protocol=protocol))
 
         hosts: list[ImportedHost] = []
         for element in root.findall("host"):
@@ -152,11 +150,8 @@ class NmapScan:
         work unobserved, so the scan stays partial: unreachable targets
         are unknown, not empty.
         """
-        return (
-            self.finished_exit == "success"
-            and all(
-                host.status == "up" and not host.timed_out for host in self.hosts
-            )
+        return self.finished_exit == "success" and all(
+            host.status == "up" and not host.timed_out for host in self.hosts
         )
 
     def scanned_at(self) -> datetime | None:
@@ -199,8 +194,7 @@ class NmapScan:
         for host in self.hosts:
             for port in host.ports:
                 if port.state == "open" or (
-                    include_closed
-                    and port.state in {"closed", "filtered", "unreachable"}
+                    include_closed and port.state in {"closed", "filtered", "unreachable"}
                 ):
                     services.append(
                         {
@@ -211,9 +205,7 @@ class NmapScan:
                             "state": port.state,
                         }
                     )
-        services.sort(
-            key=lambda item: (item["host"], item["port"], item["protocol"])
-        )
+        services.sort(key=lambda item: (item["host"], item["port"], item["protocol"]))
 
         moment = scanned_at if scanned_at is not None else self.scanned_at()
         # Only requested work enters the fingerprint: scope, protocols,
@@ -268,9 +260,7 @@ def _parse_ports_token(token: str, *, protocol: str) -> list[int]:
     try:
         port = int(token)
     except ValueError as exc:
-        raise InventoryError(
-            f"nmap {protocol} service list is not numeric: {token!r}"
-        ) from exc
+        raise InventoryError(f"nmap {protocol} service list is not numeric: {token!r}") from exc
     if not 1 <= port <= 65535:
         raise InventoryError(f"nmap {protocol} service port is invalid: {token!r}")
     return [port]
@@ -302,26 +292,15 @@ def _parse_host(element: ET.Element) -> ImportedHost:
         try:
             port_id = int(port_text)
         except ValueError as exc:
-            raise InventoryError(
-                f"nmap port id is not numeric: {port_text!r}"
-            ) from exc
+            raise InventoryError(f"nmap port id is not numeric: {port_text!r}") from exc
         if protocol not in PROTOCOLS:
             raise InventoryError(
-                f"nmap protocol {protocol!r} cannot be represented; "
-                "only tcp and udp are supported"
+                f"nmap protocol {protocol!r} cannot be represented; only tcp and udp are supported"
             )
         if not 1 <= port_id <= 65535:
             raise InventoryError(f"nmap port id is out of range: {port_id}")
         state = _NMAP_PORT_STATES.get(raw_state)
         if state is None:
-            raise InventoryError(
-                f"nmap port state {raw_state!r} cannot be represented"
-            )
-        ports.append(
-            ImportedPort(
-                protocol=protocol, port=port_id, state=state, name=name
-            )
-        )
-    return ImportedHost(
-        address=address, status=status, timed_out=timed_out, ports=tuple(ports)
-    )
+            raise InventoryError(f"nmap port state {raw_state!r} cannot be represented")
+        ports.append(ImportedPort(protocol=protocol, port=port_id, state=state, name=name))
+    return ImportedHost(address=address, status=status, timed_out=timed_out, ports=tuple(ports))

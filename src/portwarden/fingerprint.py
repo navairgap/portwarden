@@ -132,12 +132,12 @@ def normalize_scan_parameters(params: dict[str, Any] | None) -> dict[str, Any] |
     canonical: dict[str, Any] = {}
     if params.get("protocols") is not None:
         requested = params["protocols"]
-        if not isinstance(requested, list) or not requested or not all(
-            isinstance(item, str) for item in requested
+        if (
+            not isinstance(requested, list)
+            or not requested
+            or not all(isinstance(item, str) for item in requested)
         ):
-            raise InventoryError(
-                "scan_parameters protocols must be a non-empty list of strings"
-            )
+            raise InventoryError("scan_parameters protocols must be a non-empty list of strings")
         lowered = {item.strip().lower() for item in requested}
         if not lowered or not lowered <= PROTOCOLS:
             raise InventoryError("scan_parameters protocols must be tcp or udp")
@@ -145,9 +145,7 @@ def normalize_scan_parameters(params: dict[str, Any] | None) -> dict[str, Any] |
     if params.get("ports") is not None:
         requested_ports = params["ports"]
         if not isinstance(requested_ports, list):
-            raise InventoryError(
-                "scan_parameters ports must be a list of ports or a-b ranges"
-            )
+            raise InventoryError("scan_parameters ports must be a list of ports or a-b ranges")
         canonical["ports"] = list(normalize_ports(requested_ports))
     if params.get("options") is not None:
         options = params["options"]

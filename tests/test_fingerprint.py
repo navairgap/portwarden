@@ -23,9 +23,7 @@ FINGERPRINT_DOC = {
     "scope": ["192.0.2.10"],
     "services": [],
     "scan_parameters": SCAN_PARAMETERS,
-    "scope_fingerprint": compute_fingerprint(
-        ["192.0.2.10"], SCAN_PARAMETERS, schema_version=1
-    ),
+    "scope_fingerprint": compute_fingerprint(["192.0.2.10"], SCAN_PARAMETERS, schema_version=1),
 }
 
 
@@ -67,12 +65,8 @@ class ComputeTests:
         assert a == b
 
     def test_protocols_are_case_insensitive(self):
-        a = compute_fingerprint(
-            ["192.0.2.10"], {"protocols": ["TCP", "udp"]}, schema_version=1
-        )
-        b = compute_fingerprint(
-            ["192.0.2.10"], {"protocols": ["udp", "tcp"]}, schema_version=1
-        )
+        a = compute_fingerprint(["192.0.2.10"], {"protocols": ["TCP", "udp"]}, schema_version=1)
+        b = compute_fingerprint(["192.0.2.10"], {"protocols": ["udp", "tcp"]}, schema_version=1)
         assert a == b
 
     @pytest.mark.parametrize(
@@ -141,9 +135,7 @@ class ComparisonGateTests:
             "scope": ["192.0.2.10"],
             "services": [],
             "scan_parameters": params,
-            "scope_fingerprint": compute_fingerprint(
-                ["192.0.2.10"], params, schema_version=1
-            ),
+            "scope_fingerprint": compute_fingerprint(["192.0.2.10"], params, schema_version=1),
         }
         return Inventory.parse(document)
 

@@ -66,8 +66,10 @@ def compare(
     for key in sorted(set(old) | set(new)):
         previous = old.get(key)
         observed = new.get(key)
-        if observed is not None and observed.state == "open" and (
-            previous is None or previous.state != "open"
+        if (
+            observed is not None
+            and observed.state == "open"
+            and (previous is None or previous.state != "open")
         ):
             added.append(_service_dict(observed))
             continue

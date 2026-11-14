@@ -42,12 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
             "does not scan networks; it compares completed inventory files."
         ),
     )
-    parser.add_argument(
-        "--version", action="version", version=f"portwarden {__version__}"
-    )
-    subcommands = parser.add_subparsers(
-        dest="command", required=True, metavar="COMMAND"
-    )
+    parser.add_argument("--version", action="version", version=f"portwarden {__version__}")
+    subcommands = parser.add_subparsers(dest="command", required=True, metavar="COMMAND")
 
     compare_parser = subcommands.add_parser(
         "compare",

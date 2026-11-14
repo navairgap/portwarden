@@ -58,11 +58,7 @@ class ComparisonReport:
     @property
     def has_changes(self) -> bool:
         """True when any diff category is non-empty."""
-        return bool(
-            self.result["added"]
-            or self.result["removed"]
-            or self.result["changed"]
-        )
+        return bool(self.result["added"] or self.result["removed"] or self.result["changed"])
 
     def staleness(self) -> bool | None:
         """Apply the maximum-age policy.
@@ -86,10 +82,7 @@ class ComparisonReport:
     def to_dict(self) -> dict[str, Any]:
         """The stable JSON envelope for scripts and CI jobs."""
         stale = self.staleness()
-        counts = {
-            category: len(entries)
-            for category, entries in self.result.items()
-        }
+        counts = {category: len(entries) for category, entries in self.result.items()}
         return {
             "schema_version": 1,
             "kind": "comparison",
@@ -98,9 +91,7 @@ class ComparisonReport:
             "status": "changes_detected" if self.has_changes else "no_changes",
             "scope_fingerprint": self.scope_fingerprint,
             "baseline_scanned_at": (
-                format_utc(self.baseline_scanned_at)
-                if self.baseline_scanned_at
-                else None
+                format_utc(self.baseline_scanned_at) if self.baseline_scanned_at else None
             ),
             "current_scanned_at": (
                 format_utc(self.current_scanned_at) if self.current_scanned_at else None
