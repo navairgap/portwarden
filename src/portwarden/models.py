@@ -8,7 +8,6 @@ exactly is rejected instead of coerced.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -21,6 +20,7 @@ from .fingerprint import (
     normalize_scan_parameters,
 )
 from .hosts import is_host_in_scope, validate_host, validate_scope_target
+from .storage import load_json_document
 from .timestamps import parse_rfc3339
 
 SCHEMA_VERSION = 1
@@ -247,13 +247,19 @@ class Inventory:
 
     @classmethod
     def load(
-        cls, path: str | Path, *, require_complete: bool = True
+        cls,
+        path: str | Path,
+        *,
+        require_complete: bool = True,
+        max_bytes: int | None = None,
     ) -> Inventory:
-        """Load and validate an inventory from a JSON file."""
-        try:
-            with Path(path).open(encoding="utf-8") as stream:
-                return cls.parse(json.load(stream), require_complete=require_complete)
-        except json.JSONDecodeError as exc:
-            raise InventoryError(f"invalid JSON: {exc}") from exc
-        except UnicodeDecodeError as exc:
-            raise InventoryError(f"inventory is not valid UTF-8: {exc}") from exc
+        """Load and validate an inventory from a JSON file.
+
+        Files are size-limited and strictly UTF-8 decoded before parsing;
+        see docs/baseline-import-export.md.
+        """
+        if max_bytes is None:
+            document = load_json_document(path)
+        else:
+            document = load_json_document(path, max_bytes=max_bytes)
+        return cls.parse(document, require_complete=require_complete)

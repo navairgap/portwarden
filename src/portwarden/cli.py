@@ -21,6 +21,7 @@ from .errors import IncompleteInventoryError, InventoryError, ScopeMismatchError
 from .fingerprint import compute_fingerprint
 from .models import SCHEMA_VERSION, Inventory
 from .report import ComparisonReport
+from .storage import write_baseline
 
 EXIT_OK = 0
 EXIT_CHANGES = 1
@@ -87,6 +88,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fingerprint_parser.add_argument("inventory", help="inventory JSON to fingerprint")
     fingerprint_parser.set_defaults(func=_run_fingerprint)
+
+    accept_parser = subcommands.add_parser(
+        "accept",
+        help="promote a completed inventory to the accepted baseline",
+        description=(
+            "Promote a completed inventory to be the accepted baseline. "
+            "Partial scans are never promoted, and an existing baseline is "
+            "only replaced with --force."
+        ),
+    )
+    accept_parser.add_argument("current", help="completed inventory JSON to promote")
+    accept_parser.add_argument(
+        "--to",
+        required=True,
+        dest="baseline",
+        help="destination path for the accepted baseline",
+    )
+    accept_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="replace an existing baseline at the destination",
+    )
+    accept_parser.set_defaults(func=_run_accept)
 
     return parser
 
@@ -178,6 +202,30 @@ def _run_fingerprint(args: argparse.Namespace) -> int:
             inventory.scan_parameters.as_dict() if inventory.scan_parameters else None,
             schema_version=SCHEMA_VERSION,
         )
+    )
+    return EXIT_OK
+
+
+def _run_accept(args: argparse.Namespace) -> int:
+    try:
+        candidate = Inventory.load(args.current, require_complete=False)
+    except (OSError, InventoryError) as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    if candidate.status != "complete":
+        print(
+            "portwarden: an incomplete scan must never be promoted to a baseline",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL
+    try:
+        write_baseline(args.baseline, candidate.document, overwrite=args.force)
+    except (OSError, InventoryError) as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    print(
+        f"Baseline written to {args.baseline} "
+        f"({len(candidate.services)} service(s), {len(candidate.scope)} scope target(s))"
     )
     return EXIT_OK
 
