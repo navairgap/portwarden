@@ -10,11 +10,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
 from .errors import IncompleteInventoryError, InventoryError
 from .hosts import validate_host
+from .timestamps import parse_rfc3339
 
 SCHEMA_VERSION = 1
 MAX_NAME_LENGTH = 80
@@ -97,6 +99,10 @@ class Inventory:
     scope: tuple[str, ...]
     services: tuple[Service, ...]
     status: str = "complete"
+    #: When the snapshot was taken, if the scanner recorded it. Observation
+    #: metadata only: it is displayed and policy-checked, never trusted as
+    #: proof of currency.
+    scanned_at: datetime | None = None
     #: The original parsed document, preserved so rewriting a baseline can
     #: keep unknown fields for forward compatibility.
     document: dict[str, Any] = field(default_factory=dict, compare=False)
@@ -144,6 +150,9 @@ class Inventory:
             raise InventoryError("scope contains duplicate targets")
         if not isinstance(services, list):
             raise InventoryError("services must be a list")
+        scanned_at: datetime | None = None
+        if value.get("scanned_at") is not None:
+            scanned_at = parse_rfc3339(value.get("scanned_at"), field_name="scanned_at")
         parsed = tuple(Service.parse(item) for item in services)
         keys = [service.key for service in parsed]
         if len(set(keys)) != len(keys):
@@ -157,6 +166,7 @@ class Inventory:
             scope=tuple(sorted(normalized)),
             services=tuple(sorted(parsed)),
             status=status,
+            scanned_at=scanned_at,
             document=value,
         )
 
