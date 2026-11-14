@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-import os
 import stat
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -81,7 +81,10 @@ class AtomicWriteTests:
 
     def test_failures_leave_no_temporary_files(self, tmp_path, monkeypatch):
         path = tmp_path / "baseline.json"
-        monkeypatch.setattr(os, "replace", lambda *a: (_ for _ in ()).throw(OSError()))
+        # Patch the rename call site, not os.replace: pathlib on Python
+        # <= 3.12 captures its accessor at import time, so patching the
+        # os module would silently do nothing there.
+        monkeypatch.setattr(Path, "replace", lambda *a: (_ for _ in ()).throw(OSError()))
         with pytest.raises(OSError):
             atomic_write_bytes(path, b"{}")
         assert list(tmp_path.glob(".portwarden-*")) == []

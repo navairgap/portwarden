@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import importlib.metadata
 import re
-import tomllib
 from pathlib import Path
 
 import portwarden
 
 PROJECT_ROOT = Path(__file__).parent.parent
 
+# tomllib is Python 3.11+, and the project supports 3.10; the version line
+# is the single top-level `version = "..."` assignment in pyproject.toml.
+_VERSION_RE = re.compile(r'^version = "([^"]+)"$', re.MULTILINE)
+
 
 def declared_version() -> str:
-    pyproject = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text("utf-8"))
-    return pyproject["project"]["version"]
+    """The version declared in pyproject.toml's [project] table."""
+    text = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    matches = _VERSION_RE.findall(text)
+    assert len(matches) == 1, "pyproject.toml must declare exactly one version"
+    return matches[0]
 
 
 class VersionTests:
