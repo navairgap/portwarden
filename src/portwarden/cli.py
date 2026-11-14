@@ -8,8 +8,14 @@ import sys
 
 from . import __version__
 from .diff import compare
-from .errors import InventoryError
+from .errors import InventoryError, ScopeMismatchError
 from .models import Inventory
+
+EXIT_OK = 0
+EXIT_CHANGES = 1
+EXIT_INPUT_ERROR = 2
+EXIT_PARTIAL = 4
+EXIT_WITHHELD = 5
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -33,9 +39,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         result = compare(Inventory.load(args.baseline), Inventory.load(args.current))
+    except ScopeMismatchError as exc:
+        print(f"portwarden: comparison withheld: {exc}", file=sys.stderr)
+        return EXIT_WITHHELD
     except (OSError, InventoryError) as exc:
         print(f"portwarden: {exc}", file=sys.stderr)
-        return 2
+        return EXIT_INPUT_ERROR
     print(json.dumps(result, indent=2, sort_keys=True))
     return 1 if result["added"] or result["removed"] else 0
 
