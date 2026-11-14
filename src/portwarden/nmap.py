@@ -216,13 +216,10 @@ class NmapScan:
         )
 
         moment = scanned_at if scanned_at is not None else self.scanned_at()
-        scan_parameters: dict[str, Any] = {
-            "options": {
-                "scanner": self.source_name,
-                "scanner_version": self.scanner_version or "unknown",
-                "scan_args": self.args or "",
-            }
-        }
+        # Only requested work enters the fingerprint: scope, protocols,
+        # and port selection. Scanner identity and command lines are
+        # provenance — the -oX filename must not change compatibility.
+        scan_parameters: dict[str, Any] = {}
         if self.protocols:
             scan_parameters["protocols"] = list(self.protocols)
         if self.requested_ports is not None:
@@ -234,8 +231,16 @@ class NmapScan:
             "scope": sorted(normalized),
             "services": services,
             "scanned_at": format_utc(moment) if moment else None,
-            "scan_parameters": scan_parameters,
+            "provenance": {
+                "scanner": self.source_name,
+                "scanner_version": self.scanner_version or "unknown",
+                "scan_args": self.args or "",
+            },
         }
+        if scan_parameters:
+            document["scan_parameters"] = scan_parameters
+        else:
+            del document["scan_parameters"]
         if document["scanned_at"] is None:
             del document["scanned_at"]
         document["scope_fingerprint"] = compute_fingerprint(

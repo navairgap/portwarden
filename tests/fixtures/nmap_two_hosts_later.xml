@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -oX later.xml -p 22,80,443 192.0.2.10 192.0.2.11" start="1794729600" startstr="Sat Nov 15 08:00:00 2026" version="7.95" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="3" services="22,80,443"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1794729600" endtime="1794729604">
+<status state="up" reason="reset" reason_ttl="52"/>
+<address addr="192.0.2.10" addrtype="ipv4"/>
+<hostnames/>
+<ports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="52"/><service name="dropbear" method="probed" conf="5"/></port>
+<port protocol="tcp" portid="80"><state state="closed" reason="reset" reason_ttl="52"/><service name="http" method="table" conf="3"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="52"/><service name="https" method="table" conf="3"/></port>
+</ports>
+<times srtt="1200" rttvar="500" to="100000"/>
+</host>
+<host starttime="1794729600" endtime="1794729604">
+<status state="up" reason="reset" reason_ttl="52"/>
+<address addr="192.0.2.11" addrtype="ipv4"/>
+<hostnames/>
+<ports>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="52"/><service name="https" method="table" conf="3"/></port>
+</ports>
+<times srtt="1200" rttvar="500" to="100000"/>
+</host>
+<runstats>
+<finished time="1794729604" timestr="Sat Nov 15 08:00:04 2026" elapsed="4.90" exit="success" summary="Nmap done: 2 IP addresses (2 hosts up) scanned in 4.90 seconds"/>
+<hosts up="2" down="0" total="2"/>
+</runstats>
+</nmaprun>
