@@ -56,6 +56,35 @@ class InventoryValidationTests(unittest.TestCase):
             Inventory.parse(item)
 
 
+class ScopeValidationTests(unittest.TestCase):
+    def test_scope_targets_must_be_valid_hosts(self):
+        for bad in ["a b", "..", "exa mple", '"quoted"', "$HOME"]:
+            with self.assertRaisesRegex(InventoryError, "scope"):
+                Inventory.parse(inventory(scope=[bad]))
+
+    def test_blank_scope_targets_are_rejected(self):
+        for bad in ["", "   "]:
+            with self.assertRaisesRegex(InventoryError, "blank"):
+                Inventory.parse(inventory(scope=[bad]))
+
+    def test_scope_whitespace_is_normalized(self):
+        parsed = Inventory.parse(inventory(scope=["  192.0.2.10  "]))
+        self.assertEqual(parsed.scope, ("192.0.2.10",))
+
+    def test_overlong_hostname_label_is_rejected(self):
+        bad = "a" * 64 + ".example.org"
+        with self.assertRaisesRegex(InventoryError, "scope"):
+            Inventory.parse(inventory(scope=[bad]))
+
+    def test_valid_hostname_and_ipv6_targets_are_accepted(self):
+        parsed = Inventory.parse(inventory(scope=[
+            "host.example.org", "2001:db8::1",
+        ]))
+        self.assertEqual(
+            parsed.scope, ("2001:db8::1", "host.example.org")
+        )
+
+
 class InventoryDiffTests(unittest.TestCase):
     def test_reports_new_and_removed_services_deterministically(self):
         old = Inventory.parse(inventory(services=[
