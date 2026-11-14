@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .errors import IncompleteInventoryError, InventoryError
-from .hosts import validate_host
+from .hosts import is_host_in_scope, validate_host, validate_scope_target
 from .timestamps import parse_rfc3339
 
 SCHEMA_VERSION = 1
@@ -142,7 +142,7 @@ class Inventory:
             if not target:
                 raise InventoryError("scope targets must not be blank")
             try:
-                validate_host(target)
+                validate_scope_target(target)
             except InventoryError as exc:
                 raise InventoryError(f"invalid scope target: {exc}") from exc
             normalized.append(target)
@@ -159,8 +159,7 @@ class Inventory:
             raise InventoryError(
                 "services contains duplicate host/port/protocol entries"
             )
-        allowed = set(normalized)
-        if any(service.host not in allowed for service in parsed):
+        if any(not is_host_in_scope(service.host, normalized) for service in parsed):
             raise InventoryError("service host is outside the declared inventory scope")
         return cls(
             scope=tuple(sorted(normalized)),
