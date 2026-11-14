@@ -1,51 +1,38 @@
-#!/usr/bin/env python3
-"""Offline baseline validation and comparison for authorized service inventories.
+"""Data model and strict parsing for PortWarden inventory files.
 
-PortWarden deliberately does not scan networks. It only compares completed
-inventory files produced by an operator-approved scanner.
+An inventory is a completed snapshot of the services exposed by an
+explicitly authorized set of targets. Parsing is strict on purpose:
+ambiguity in a baseline can hide real changes, so anything that cannot
+be interpreted exactly is rejected instead of coerced.
 """
+
 from __future__ import annotations
 
-import argparse
-import ipaddress
 import json
-import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
-_HOST_RE = re.compile(r"^[A-Za-z0-9._:-]{1,253}$")
+from .errors import InventoryError
+from .hosts import validate_host
 
-
-class InventoryError(ValueError):
-    """Raised when an inventory is unsafe or unsuitable for comparison."""
-
-
-def _validate_host(host: str) -> None:
-    """Validate one target identifier: an IP literal or a hostname label path."""
-    if not isinstance(host, str) or not _HOST_RE.fullmatch(host):
-        raise InventoryError("host is missing or invalid")
-    try:
-        ipaddress.ip_address(host)
-    except ValueError:
-        if (
-            host.startswith(".")
-            or host.endswith(".")
-            or ".." in host
-            or any(len(label) > 63 for label in host.split("."))
-        ):
-            raise InventoryError(f"invalid host: {host!r}") from None
+SCHEMA_VERSION = 1
+MAX_NAME_LENGTH = 80
+PROTOCOLS = ("tcp", "udp")
 
 
 @dataclass(frozen=True, order=True)
 class Service:
+    """One observed service endpoint, keyed by ``(host, port, protocol)``."""
+
     host: str
     port: int
     protocol: str
     name: str = ""
 
     @classmethod
-    def parse(cls, value: object) -> "Service":
+    def parse(cls, value: object) -> Service:
+        """Parse and validate one service object from decoded JSON."""
         if not isinstance(value, dict):
             raise InventoryError("each service must be an object")
         host = value.get("host")
@@ -55,32 +42,47 @@ class Service:
         if not isinstance(host, str):
             raise InventoryError("service host is missing or invalid")
         try:
-            _validate_host(host)
+            validate_host(host)
         except InventoryError as exc:
             raise InventoryError(f"service {exc}") from exc
         if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
             raise InventoryError("service port must be an integer from 1 to 65535")
-        if protocol not in ("tcp", "udp"):
+        if protocol not in PROTOCOLS:
             raise InventoryError("service protocol must be tcp or udp")
-        if not isinstance(name, str) or len(name) > 80 or any(ord(c) < 32 for c in name):
+        if not isinstance(name, str) or len(name) > MAX_NAME_LENGTH or any(
+            ord(c) < 32 for c in name
+        ):
             raise InventoryError("service name must be a short printable string")
         return cls(host, port, protocol, name)
 
-    def as_dict(self) -> dict[str, object]:
-        return {"host": self.host, "port": self.port,
-                "protocol": self.protocol, "name": self.name}
+    @property
+    def key(self) -> tuple[str, int, str]:
+        """The identity of this observation, ignoring changeable metadata."""
+        return (self.host, self.port, self.protocol)
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return the canonical JSON mapping for this service."""
+        return {
+            "host": self.host,
+            "port": self.port,
+            "protocol": self.protocol,
+            "name": self.name,
+        }
 
 
 @dataclass(frozen=True)
 class Inventory:
+    """A completed inventory of services for an explicit scope."""
+
     scope: tuple[str, ...]
     services: tuple[Service, ...]
 
     @classmethod
-    def parse(cls, value: object) -> "Inventory":
+    def parse(cls, value: object) -> Inventory:
+        """Parse and validate a full inventory document."""
         if not isinstance(value, dict):
             raise InventoryError("inventory root must be an object")
-        if value.get("schema_version") != 1:
+        if value.get("schema_version") != SCHEMA_VERSION:
             raise InventoryError("unsupported inventory schema_version")
         if value.get("status") != "complete":
             raise InventoryError("only completed scans can be used as a baseline")
@@ -98,7 +100,7 @@ class Inventory:
             if not target:
                 raise InventoryError("scope targets must not be blank")
             try:
-                _validate_host(target)
+                validate_host(target)
             except InventoryError as exc:
                 raise InventoryError(f"invalid scope target: {exc}") from exc
             normalized.append(target)
@@ -107,16 +109,19 @@ class Inventory:
         if not isinstance(services, list):
             raise InventoryError("services must be a list")
         parsed = tuple(Service.parse(item) for item in services)
-        keys = [(s.host, s.port, s.protocol) for s in parsed]
+        keys = [service.key for service in parsed]
         if len(set(keys)) != len(keys):
-            raise InventoryError("services contains duplicate host/port/protocol entries")
+            raise InventoryError(
+                "services contains duplicate host/port/protocol entries"
+            )
         allowed = set(normalized)
-        if any(s.host not in allowed for s in parsed):
+        if any(service.host not in allowed for service in parsed):
             raise InventoryError("service host is outside the declared inventory scope")
         return cls(tuple(sorted(normalized)), tuple(sorted(parsed)))
 
     @classmethod
-    def load(cls, path: str | Path) -> "Inventory":
+    def load(cls, path: str | Path) -> Inventory:
+        """Load and validate an inventory from a JSON file."""
         try:
             with Path(path).open(encoding="utf-8") as stream:
                 return cls.parse(json.load(stream))
@@ -124,32 +129,3 @@ class Inventory:
             raise InventoryError(f"invalid JSON: {exc}") from exc
         except UnicodeDecodeError as exc:
             raise InventoryError(f"inventory is not valid UTF-8: {exc}") from exc
-
-
-def compare(baseline: Inventory, current: Inventory) -> dict[str, list[dict[str, object]]]:
-    """Return deterministic additions/removals; reject incompatible scopes."""
-    if baseline.scope != current.scope:
-        raise InventoryError("baseline and current inventory scopes do not match")
-    old = {(s.host, s.port, s.protocol): s for s in baseline.services}
-    new = {(s.host, s.port, s.protocol): s for s in current.services}
-    added = [new[k].as_dict() for k in sorted(new.keys() - old.keys())]
-    removed = [old[k].as_dict() for k in sorted(old.keys() - new.keys())]
-    return {"added": added, "removed": removed}
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("baseline", help="previous completed inventory JSON")
-    parser.add_argument("current", help="new completed inventory JSON")
-    args = parser.parse_args(argv)
-    try:
-        result = compare(Inventory.load(args.baseline), Inventory.load(args.current))
-    except (OSError, InventoryError) as exc:
-        print(f"portwarden: {exc}", file=sys.stderr)
-        return 2
-    print(json.dumps(result, indent=2, sort_keys=True))
-    return 1 if result["added"] or result["removed"] else 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
