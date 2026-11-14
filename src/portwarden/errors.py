@@ -7,6 +7,14 @@ class InventoryError(ValueError):
     """Raised when an inventory is unsafe or unsuitable for comparison."""
 
 
+class IncompleteInventoryError(InventoryError):
+    """Raised when a partial inventory is used where a complete one is required.
+
+    Partial scans must never be promoted to baselines or silently compared,
+    because missing observations are not evidence that a service vanished.
+    """
+
+
 class ScopeMismatchError(InventoryError):
     """Raised when a comparison is withheld because scopes are incompatible.
 

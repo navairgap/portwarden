@@ -1,24 +1,39 @@
 """Data model and strict parsing for PortWarden inventory files.
 
-An inventory is a completed snapshot of the services exposed by an
-explicitly authorized set of targets. Parsing is strict on purpose:
-ambiguity in a baseline can hide real changes, so anything that cannot
-be interpreted exactly is rejected instead of coerced.
+An inventory is a snapshot of the services exposed by an explicitly
+authorized set of targets. Parsing is strict on purpose: ambiguity in a
+baseline can hide real changes, so anything that cannot be interpreted
+exactly is rejected instead of coerced.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from .errors import InventoryError
+from .errors import IncompleteInventoryError, InventoryError
 from .hosts import validate_host
 
 SCHEMA_VERSION = 1
 MAX_NAME_LENGTH = 80
 PROTOCOLS = ("tcp", "udp")
+
+#: Explicit per-port observation states (docs/scan-result-semantics.md).
+PortState = Literal["open", "closed", "filtered", "unreachable", "not_scanned", "error"]
+STATES: frozenset[str] = frozenset(
+    {"open", "closed", "filtered", "unreachable", "not_scanned", "error"}
+)
+
+#: Observation states that cannot confirm or deny a service's presence.
+UNKNOWN_STATES: frozenset[str] = frozenset(
+    {"filtered", "unreachable", "not_scanned", "error"}
+)
+
+#: Scan completion markers allowed in inventory files. Failed and cancelled
+#: runs must not produce inventory files at all.
+STATUSES: frozenset[str] = frozenset({"complete", "partial"})
 
 
 @dataclass(frozen=True, order=True)
@@ -29,6 +44,7 @@ class Service:
     port: int
     protocol: str
     name: str = ""
+    state: PortState = "open"
 
     @classmethod
     def parse(cls, value: object) -> Service:
@@ -39,6 +55,7 @@ class Service:
         port = value.get("port")
         protocol = value.get("protocol", "tcp")
         name = value.get("name", "")
+        state = value.get("state", "open")
         if not isinstance(host, str):
             raise InventoryError("service host is missing or invalid")
         try:
@@ -53,7 +70,9 @@ class Service:
             ord(c) < 32 for c in name
         ):
             raise InventoryError("service name must be a short printable string")
-        return cls(host, port, protocol, name)
+        if not isinstance(state, str) or state not in STATES:
+            raise InventoryError("service state must be a documented observation state")
+        return cls(host, port, protocol, name, state)  # type: ignore[arg-type]
 
     @property
     def key(self) -> tuple[str, int, str]:
@@ -67,25 +86,42 @@ class Service:
             "port": self.port,
             "protocol": self.protocol,
             "name": self.name,
+            "state": self.state,
         }
 
 
 @dataclass(frozen=True)
 class Inventory:
-    """A completed inventory of services for an explicit scope."""
+    """An inventory of services for an explicit, authorized scope."""
 
     scope: tuple[str, ...]
     services: tuple[Service, ...]
+    status: str = "complete"
+    #: The original parsed document, preserved so rewriting a baseline can
+    #: keep unknown fields for forward compatibility.
+    document: dict[str, Any] = field(default_factory=dict, compare=False)
 
     @classmethod
-    def parse(cls, value: object) -> Inventory:
-        """Parse and validate a full inventory document."""
+    def parse(cls, value: object, *, require_complete: bool = True) -> Inventory:
+        """Parse and validate a full inventory document.
+
+        Args:
+            value: The decoded JSON document.
+            require_complete: Reject partial inventories when True; callers
+                that only inspect a file (for example ``validate``) may pass
+                False, but a partial inventory must never become a baseline.
+        """
         if not isinstance(value, dict):
             raise InventoryError("inventory root must be an object")
         if value.get("schema_version") != SCHEMA_VERSION:
             raise InventoryError("unsupported inventory schema_version")
-        if value.get("status") != "complete":
-            raise InventoryError("only completed scans can be used as a baseline")
+        status = value.get("status")
+        if status not in STATUSES:
+            raise InventoryError("inventory status must be complete or partial")
+        if require_complete and status != "complete":
+            raise IncompleteInventoryError(
+                "only completed scans can be used as a baseline"
+            )
         scope = value.get("scope")
         services = value.get("services")
         if not isinstance(scope, list) or not scope or not all(
@@ -117,14 +153,21 @@ class Inventory:
         allowed = set(normalized)
         if any(service.host not in allowed for service in parsed):
             raise InventoryError("service host is outside the declared inventory scope")
-        return cls(tuple(sorted(normalized)), tuple(sorted(parsed)))
+        return cls(
+            scope=tuple(sorted(normalized)),
+            services=tuple(sorted(parsed)),
+            status=status,
+            document=value,
+        )
 
     @classmethod
-    def load(cls, path: str | Path) -> Inventory:
+    def load(
+        cls, path: str | Path, *, require_complete: bool = True
+    ) -> Inventory:
         """Load and validate an inventory from a JSON file."""
         try:
             with Path(path).open(encoding="utf-8") as stream:
-                return cls.parse(json.load(stream))
+                return cls.parse(json.load(stream), require_complete=require_complete)
         except json.JSONDecodeError as exc:
             raise InventoryError(f"invalid JSON: {exc}") from exc
         except UnicodeDecodeError as exc:

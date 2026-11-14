@@ -17,7 +17,7 @@ import sys
 
 from . import __version__
 from .diff import compare
-from .errors import InventoryError, ScopeMismatchError
+from .errors import IncompleteInventoryError, InventoryError, ScopeMismatchError
 from .models import Inventory
 
 EXIT_OK = 0
@@ -69,21 +69,25 @@ def _run_compare(args: argparse.Namespace) -> int:
     except ScopeMismatchError as exc:
         print(f"portwarden: comparison withheld: {exc}", file=sys.stderr)
         return EXIT_WITHHELD
+    except IncompleteInventoryError as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_PARTIAL
     except (OSError, InventoryError) as exc:
         print(f"portwarden: {exc}", file=sys.stderr)
         return EXIT_INPUT_ERROR
     print(json.dumps(result, indent=2, sort_keys=True))
-    return EXIT_CHANGES if result["added"] or result["removed"] else EXIT_OK
+    findings = result["added"] or result["removed"] or result["changed"]
+    return EXIT_CHANGES if findings else EXIT_OK
 
 
 def _run_validate(args: argparse.Namespace) -> int:
     try:
-        inventory = Inventory.load(args.inventory)
+        inventory = Inventory.load(args.inventory, require_complete=False)
     except (OSError, InventoryError) as exc:
         print(f"portwarden: {exc}", file=sys.stderr)
         return EXIT_INPUT_ERROR
     print(
-        f"OK: complete inventory: {len(inventory.services)} service(s) "
+        f"OK: {inventory.status} inventory: {len(inventory.services)} service(s) "
         f"across {len(inventory.scope)} scope target(s)"
     )
     return EXIT_OK

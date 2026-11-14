@@ -93,11 +93,21 @@ class InventoryDiffTests(unittest.TestCase):
         ]))
         new = Inventory.parse(inventory(services=[
             {"host": "192.0.2.10", "port": 22, "protocol": "tcp"},
+            {"host": "192.0.2.10", "port": 80, "protocol": "tcp", "state": "closed"},
             {"host": "192.0.2.10", "port": 443, "protocol": "tcp"},
         ]))
         result = compare(old, new)
         self.assertEqual([x["port"] for x in result["added"]], [443])
         self.assertEqual([x["port"] for x in result["removed"]], [80])
+
+    def test_missing_observation_is_not_evidence_of_removal(self):
+        old = Inventory.parse(inventory(services=[
+            {"host": "192.0.2.10", "port": 80, "protocol": "tcp"},
+        ]))
+        new = Inventory.parse(inventory(services=[]))
+        result = compare(old, new)
+        self.assertEqual(result["removed"], [])
+        self.assertEqual(result["unverified"][0]["reason"], "missing_from_current")
 
     def test_refuses_scope_mismatch(self):
         old = Inventory.parse(inventory(scope=["192.0.2.10"]))
