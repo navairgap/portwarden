@@ -68,10 +68,40 @@ def test_clean_comparison_exits_0_and_prints_result(
         tmp_path / "current.json",
         inventory(["192.0.2.10"], [{"host": "192.0.2.10", "port": 22, "protocol": "tcp"}]),
     )
-    assert main(["compare", str(baseline), str(current)]) == 0
+    assert main(["compare", str(baseline), str(current), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["added"] == []
-    assert payload["removed"] == []
+    assert payload["status"] == "no_changes"
+    assert payload["counts"] == {"added": 0, "changed": 0, "removed": 0, "unverified": 0}
+
+
+def test_json_mode_emits_exactly_one_object(
+    tmp_path, capsys  # type: ignore[no-untyped-def]
+):
+    baseline = write_inventory(tmp_path / "baseline.json", inventory(["192.0.2.10"], []))
+    current = write_inventory(
+        tmp_path / "current.json",
+        inventory(["192.0.2.10"], [{"host": "192.0.2.10", "port": 22, "protocol": "tcp"}]),
+    )
+    assert main(["compare", str(baseline), str(current), "--json"]) == 1
+    out = capsys.readouterr().out
+    assert out.endswith("\n")
+    payload = json.loads(out)  # raises unless the whole stream is one object
+    assert payload["kind"] == "comparison"
+    assert payload["status"] == "changes_detected"
+    assert payload["counts"]["added"] == 1
+
+
+def test_default_mode_is_a_text_report(tmp_path, capsys):  # type: ignore[no-untyped-def]
+    baseline = write_inventory(tmp_path / "baseline.json", inventory(["192.0.2.10"], []))
+    current = write_inventory(
+        tmp_path / "current.json",
+        inventory(["192.0.2.10"], [{"host": "192.0.2.10", "port": 22, "protocol": "tcp"}]),
+    )
+    assert main(["compare", str(baseline), str(current)]) == 1
+    out = capsys.readouterr().out
+    assert "PortWarden comparison" in out
+    assert "Added (1):" in out
+    assert "tcp/22" in out
 
 
 def test_validate_accepts_a_valid_inventory(tmp_path, capsys):  # type: ignore[no-untyped-def]

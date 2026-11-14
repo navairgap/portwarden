@@ -12,14 +12,15 @@ Exit status contract (see docs/cli-output-contract.md):
 from __future__ import annotations
 
 import argparse
-import json
 import sys
+from datetime import datetime, timezone
 
 from . import __version__
 from .diff import compare
 from .errors import IncompleteInventoryError, InventoryError, ScopeMismatchError
 from .fingerprint import compute_fingerprint
 from .models import SCHEMA_VERSION, Inventory
+from .report import ComparisonReport
 
 EXIT_OK = 0
 EXIT_CHANGES = 1
@@ -56,6 +57,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="explicit operator decision to compare across differing scope "
         "fingerprints (a genuine scope mismatch is still refused)",
+    )
+    compare_parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit exactly one JSON report object on stdout",
+    )
+    compare_parser.add_argument(
+        "--max-age",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="label the report stale when either snapshot is older than this",
     )
     compare_parser.set_defaults(func=_run_compare)
 
@@ -122,9 +135,22 @@ def _run_compare(args: argparse.Namespace) -> int:
             "by explicit operator decision",
             file=sys.stderr,
         )
-    print(json.dumps(result, indent=2, sort_keys=True))
-    findings = result["added"] or result["removed"] or result["changed"]
-    return EXIT_CHANGES if findings else EXIT_OK
+    matching_fingerprint = (
+        baseline.scope_fingerprint
+        if baseline.scope_fingerprint == current.scope_fingerprint
+        else None
+    )
+    report = ComparisonReport(
+        result=result,
+        scope_size=len(baseline.scope),
+        baseline_scanned_at=baseline.scanned_at,
+        current_scanned_at=current.scanned_at,
+        scope_fingerprint=matching_fingerprint,
+        now=datetime.now(timezone.utc),
+        max_age_seconds=args.max_age,
+    )
+    print(report.to_json() if args.json else report.to_text())
+    return EXIT_CHANGES if report.has_changes else EXIT_OK
 
 
 def _run_validate(args: argparse.Namespace) -> int:
