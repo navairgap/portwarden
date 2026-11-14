@@ -15,6 +15,11 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .errors import IncompleteInventoryError, InventoryError
+from .fingerprint import (
+    compute_fingerprint,
+    is_valid_fingerprint,
+    normalize_scan_parameters,
+)
 from .hosts import is_host_in_scope, validate_host, validate_scope_target
 from .timestamps import parse_rfc3339
 
@@ -36,6 +41,53 @@ UNKNOWN_STATES: frozenset[str] = frozenset(
 #: Scan completion markers allowed in inventory files. Failed and cancelled
 #: runs must not produce inventory files at all.
 STATUSES: frozenset[str] = frozenset({"complete", "partial"})
+
+
+@dataclass(frozen=True)
+class ScanParameters:
+    """The requested work behind a scan, as far as the format records it.
+
+    These fields participate in the scope fingerprint: two inventories
+    that disagree about requested protocols, port selection, or
+    coverage-affecting options describe different work.
+    """
+
+    protocols: tuple[str, ...] | None = None
+    ports: tuple[int, ...] | None = None
+    options: dict[str, Any] = field(default_factory=dict, compare=False)
+
+    @classmethod
+    def parse(cls, value: object) -> ScanParameters:
+        """Parse and validate the ``scan_parameters`` object.
+
+        Canonicalization is delegated to the fingerprint module so that
+        validation and hashing can never disagree about normalization.
+        """
+        if not isinstance(value, dict):
+            raise InventoryError("scan_parameters must be an object")
+        unknown = set(value) - {"protocols", "ports", "options"}
+        if unknown:
+            raise InventoryError(
+                f"unknown scan_parameters field(s): {', '.join(sorted(unknown))}"
+            )
+        canonical = normalize_scan_parameters(value)
+        assert canonical is not None  # normalize raises on empty input
+        return cls(
+            protocols=tuple(canonical["protocols"]) if "protocols" in canonical else None,
+            ports=tuple(canonical["ports"]) if "ports" in canonical else None,
+            options=canonical.get("options", {}),
+        )
+
+    def as_dict(self) -> dict[str, Any]:
+        """The canonical mapping this object contributes to the fingerprint."""
+        result: dict[str, Any] = {}
+        if self.protocols is not None:
+            result["protocols"] = list(self.protocols)
+        if self.ports is not None:
+            result["ports"] = list(self.ports)
+        if self.options:
+            result["options"] = dict(self.options)
+        return result
 
 
 @dataclass(frozen=True, order=True)
@@ -103,6 +155,10 @@ class Inventory:
     #: metadata only: it is displayed and policy-checked, never trusted as
     #: proof of currency.
     scanned_at: datetime | None = None
+    #: The requested work behind the snapshot, when the scanner recorded it.
+    scan_parameters: ScanParameters | None = None
+    #: Declared (and load-time verified) scope fingerprint, when present.
+    scope_fingerprint: str | None = None
     #: The original parsed document, preserved so rewriting a baseline can
     #: keep unknown fields for forward compatibility.
     document: dict[str, Any] = field(default_factory=dict, compare=False)
@@ -153,6 +209,24 @@ class Inventory:
         scanned_at: datetime | None = None
         if value.get("scanned_at") is not None:
             scanned_at = parse_rfc3339(value.get("scanned_at"), field_name="scanned_at")
+        scan_parameters: ScanParameters | None = None
+        if value.get("scan_parameters") is not None:
+            scan_parameters = ScanParameters.parse(value.get("scan_parameters"))
+        declared_fingerprint = value.get("scope_fingerprint")
+        if declared_fingerprint is not None:
+            if not is_valid_fingerprint(declared_fingerprint):
+                raise InventoryError(
+                    "scope_fingerprint must be a sha256-prefixed hex digest"
+                )
+            computed = compute_fingerprint(
+                normalized,
+                scan_parameters.as_dict() if scan_parameters else None,
+                schema_version=SCHEMA_VERSION,
+            )
+            if declared_fingerprint != computed:
+                raise InventoryError(
+                    "declared scope_fingerprint does not match inventory contents"
+                )
         parsed = tuple(Service.parse(item) for item in services)
         keys = [service.key for service in parsed]
         if len(set(keys)) != len(keys):
@@ -166,6 +240,8 @@ class Inventory:
             services=tuple(sorted(parsed)),
             status=status,
             scanned_at=scanned_at,
+            scan_parameters=scan_parameters,
+            scope_fingerprint=declared_fingerprint,
             document=value,
         )
 

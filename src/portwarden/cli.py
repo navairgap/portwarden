@@ -18,7 +18,8 @@ import sys
 from . import __version__
 from .diff import compare
 from .errors import IncompleteInventoryError, InventoryError, ScopeMismatchError
-from .models import Inventory
+from .fingerprint import compute_fingerprint
+from .models import SCHEMA_VERSION, Inventory
 
 EXIT_OK = 0
 EXIT_CHANGES = 1
@@ -50,6 +51,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     compare_parser.add_argument("baseline", help="accepted baseline inventory JSON")
     compare_parser.add_argument("current", help="new completed inventory JSON")
+    compare_parser.add_argument(
+        "--allow-scope-change",
+        action="store_true",
+        help="explicit operator decision to compare across differing scope "
+        "fingerprints (a genuine scope mismatch is still refused)",
+    )
     compare_parser.set_defaults(func=_run_compare)
 
     validate_parser = subcommands.add_parser(
@@ -60,21 +67,61 @@ def build_parser() -> argparse.ArgumentParser:
     validate_parser.add_argument("inventory", help="inventory JSON to validate")
     validate_parser.set_defaults(func=_run_validate)
 
+    fingerprint_parser = subcommands.add_parser(
+        "fingerprint",
+        help="print the scope fingerprint of an inventory",
+        description="Compute and print the scope fingerprint of one inventory file.",
+    )
+    fingerprint_parser.add_argument("inventory", help="inventory JSON to fingerprint")
+    fingerprint_parser.set_defaults(func=_run_fingerprint)
+
     return parser
 
 
-def _run_compare(args: argparse.Namespace) -> int:
+def _load_pair(args: argparse.Namespace) -> tuple[Inventory, Inventory] | int:
+    """Load both compare inputs, mapping failures to documented exits."""
+    for path in (args.baseline, args.current):
+        if not isinstance(path, str) or not path:
+            return EXIT_INPUT_ERROR
     try:
-        result = compare(Inventory.load(args.baseline), Inventory.load(args.current))
-    except ScopeMismatchError as exc:
-        print(f"portwarden: comparison withheld: {exc}", file=sys.stderr)
-        return EXIT_WITHHELD
+        baseline = Inventory.load(args.baseline)
+        current = Inventory.load(args.current)
     except IncompleteInventoryError as exc:
         print(f"portwarden: {exc}", file=sys.stderr)
         return EXIT_PARTIAL
     except (OSError, InventoryError) as exc:
         print(f"portwarden: {exc}", file=sys.stderr)
         return EXIT_INPUT_ERROR
+    if baseline.scope_fingerprint is None or current.scope_fingerprint is None:
+        print(
+            "portwarden: warning: at least one inventory has no scope fingerprint; "
+            "scope compatibility could not be verified",
+            file=sys.stderr,
+        )
+    return baseline, current
+
+
+def _run_compare(args: argparse.Namespace) -> int:
+    loaded = _load_pair(args)
+    if isinstance(loaded, int):
+        return loaded
+    baseline, current = loaded
+    try:
+        result = compare(baseline, current)
+    except ScopeMismatchError as exc:
+        if not args.allow_scope_change:
+            print(f"portwarden: comparison withheld: {exc}", file=sys.stderr)
+            return EXIT_WITHHELD
+        try:
+            result = compare(baseline, current, allow_fingerprint_mismatch=True)
+        except ScopeMismatchError:
+            print(f"portwarden: comparison withheld: {exc}", file=sys.stderr)
+            return EXIT_WITHHELD
+        print(
+            "portwarden: warning: scope fingerprints differ; comparison forced "
+            "by explicit operator decision",
+            file=sys.stderr,
+        )
     print(json.dumps(result, indent=2, sort_keys=True))
     findings = result["added"] or result["removed"] or result["changed"]
     return EXIT_CHANGES if findings else EXIT_OK
@@ -89,6 +136,22 @@ def _run_validate(args: argparse.Namespace) -> int:
     print(
         f"OK: {inventory.status} inventory: {len(inventory.services)} service(s) "
         f"across {len(inventory.scope)} scope target(s)"
+    )
+    return EXIT_OK
+
+
+def _run_fingerprint(args: argparse.Namespace) -> int:
+    try:
+        inventory = Inventory.load(args.inventory, require_complete=False)
+    except (OSError, InventoryError) as exc:
+        print(f"portwarden: {exc}", file=sys.stderr)
+        return EXIT_INPUT_ERROR
+    print(
+        compute_fingerprint(
+            inventory.scope,
+            inventory.scan_parameters.as_dict() if inventory.scan_parameters else None,
+            schema_version=SCHEMA_VERSION,
+        )
     )
     return EXIT_OK
 

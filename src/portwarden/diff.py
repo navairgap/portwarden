@@ -18,19 +18,43 @@ def _service_dict(service: Service) -> dict[str, Any]:
     return service.as_dict()
 
 
-def compare(baseline: Inventory, current: Inventory) -> dict[str, list[dict[str, Any]]]:
+def compare(
+    baseline: Inventory,
+    current: Inventory,
+    *,
+    allow_fingerprint_mismatch: bool = False,
+) -> dict[str, list[dict[str, Any]]]:
     """Return deterministic additions, removals, and unverified services.
 
-    Both inventories must describe the same scope. Results are sorted by
+    Both inventories must describe the same scope. When both carry scope
+    fingerprints and the fingerprints differ, the comparison is withheld:
+    the scans describe different requested work. Results are sorted by
     host, then numerically by port, so identical inputs always produce
     identical output.
 
+    Args:
+        baseline: The accepted baseline inventory.
+        current: The new completed inventory.
+        allow_fingerprint_mismatch: Explicit operator decision to compare
+            across differing fingerprints. A genuine scope mismatch is
+            never overridden.
+
     Raises:
         ScopeMismatchError: if the two inventories do not describe the
-            same scope; the comparison is withheld, not guessed.
+            same scope, or their fingerprints differ without override.
     """
     if baseline.scope != current.scope:
         raise ScopeMismatchError("baseline and current inventory scopes do not match")
+    if (
+        not allow_fingerprint_mismatch
+        and baseline.scope_fingerprint is not None
+        and current.scope_fingerprint is not None
+        and baseline.scope_fingerprint != current.scope_fingerprint
+    ):
+        raise ScopeMismatchError(
+            "scope fingerprints differ: "
+            f"baseline {baseline.scope_fingerprint} vs current {current.scope_fingerprint}"
+        )
     old = {service.key: service for service in baseline.services}
     new = {service.key: service for service in current.services}
 
